@@ -509,11 +509,16 @@ const SchedulePage = () => {
       </Head>
 
       <div className="flex h-screen bg-gray-50 overflow-hidden">
-        <div
-          className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out bg-white lg:relative lg:translate-x-0 ${
-            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
+      <div
+  className={`fixed inset-y-0 left-0 z-50 
+  transform transition-transform duration-300 
+  lg:relative lg:translate-x-0 
+  bg-white dark:bg-gray-900
+  h-screen overflow-y-auto overflow-x-hidden
+  ${
+    isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+  }`}
+>
           <Sidebar />
           <button
             onClick={() => setIsSidebarOpen(false)}
