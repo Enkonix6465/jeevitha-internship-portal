@@ -82,14 +82,23 @@ const Assignments = () => {
     const loadAssignments = async () => {
       try {
         const response = await fetch("/api/assignments");
-        if (response.ok) {
-          const data = await response.json();
-          if (data.data) {
-            setAssignments(data.data);
-          }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Response is not JSON");
+        }
+
+        const data = await response.json();
+        if (data.data) {
+          setAssignments(data.data);
         }
       } catch (error) {
         console.error("Failed to load assignments:", error);
+        setAssignments([]);
       }
     };
     loadAssignments();
@@ -258,31 +267,40 @@ const Assignments = () => {
       .filter(Boolean);
 
     // Save to database
-    fetch(`/api/assignments`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        title,
-        course,
-        dueDate: due,
-        students,
-      }),
-    })
-      .then((res) => {
-        if (res.ok) {
-          return res.json();
+    (async () => {
+      try {
+        const response = await fetch(`/api/assignments`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title,
+            course,
+            dueDate: due,
+            students,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        throw new Error("Failed to create assignment");
-      })
-      .then((data) => {
-        setAssignments((prev) => [...prev, data.data]);
-        console.log("Assignment created successfully");
-      })
-      .catch((error) => {
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Response is not JSON");
+        }
+
+        const data = await response.json();
+        if (data.data) {
+          setAssignments((prev) => [...prev, data.data]);
+          alert("Assignment created successfully!");
+        }
+      } catch (error) {
         console.error("Failed to create assignment:", error);
-      });
+        alert("Failed to create assignment. Please try again.");
+      }
+    })();
 
     setNewAssignment({ title: "", course: "", dueDate: "", students: "" });
   };
@@ -312,9 +330,18 @@ const Assignments = () => {
           body: formData,
         });
 
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Response is not JSON");
+        }
+
         const data = await response.json();
 
-        if (!response.ok) {
+        if (data.error) {
           throw new Error(data.error || "Upload failed");
         }
 

@@ -11,7 +11,7 @@ export default async function handler(
   }
 
   try {
-    await connectDB();
+
 
     const data = req.body; // action = 'accept' or 'reject'
     const resource = await todolist.findOneAndUpdate(

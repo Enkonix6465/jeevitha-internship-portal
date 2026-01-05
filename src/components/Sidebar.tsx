@@ -40,6 +40,7 @@ const Sidebar = (props: Props) => {
       return [
         ...baseItems,
         { icon: Users, label: "Users", path: "/users" },
+        { icon: FileText, label: "Tasks", path: "/tasks" },
         { icon: GraduationCap, label: "Courses", path: "/courses" },
         { icon: FileText, label: "Assignments", path: "/assignments" },
         { icon: Calendar, label: "Schedule", path: "/schedule" },
@@ -51,6 +52,7 @@ const Sidebar = (props: Props) => {
     } else if (user?.role === "Faculty") {
       return [
         ...baseItems,
+        { icon: FileText, label: "Tasks", path: "/tasks" },
         { icon: FileText, label: "Assignments", path: "/assignments" },
         { icon: Calendar, label: "Schedule", path: "/schedule" },
         { icon: Video, label: "Recordings", path: "/recordings" },
@@ -64,6 +66,7 @@ const Sidebar = (props: Props) => {
       // Student role
       return [
         ...baseItems,
+        { icon: FileText, label: "Tasks", path: "/tasks" },
         { icon: FileText, label: "Assignments", path: "/assignments" },
         { icon: Calendar, label: "Schedule", path: "/schedule" },
         { icon: Video, label: "Recordings", path: "/recordings" },

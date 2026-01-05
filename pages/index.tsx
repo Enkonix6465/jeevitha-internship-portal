@@ -52,12 +52,29 @@ export default function Home() {
   });
 
   React.useEffect(() => {
-    fetch("/api/getresources")
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Fetched resources:", data);
-        setResources(data.resources);
-      });
+    const fetchResources = async () => {
+      try {
+        const response = await fetch("/api/getresources");
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Response is not JSON");
+        }
+
+        const data = await response.json();
+        if (data.resources) {
+          setResources(data.resources);
+        }
+      } catch (error) {
+        console.error("Failed to fetch resources:", error);
+        setResources([]);
+      }
+    };
+    fetchResources();
   }, []);
 
   const handleDownload = (index: number) => {
@@ -91,26 +108,34 @@ export default function Home() {
     setNewResource((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleResourceSubmit = (e: React.FormEvent) => {
+  const handleResourceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newResource.name.trim()) return;
-    fetch("/api/addresources", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(newResource),
-    }).then((res) => {
-      if (res.ok) {
-        setResources((prev) => [...prev, newResource]);
-        console.log("Resource submitted successfully");
-      } else {
-        console.error("Failed to submit resource");
-      }
-    });
+    try {
+      const response = await fetch("/api/addresources", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newResource),
+      });
 
-    setShowResourceModal(false);
-    setNewResource({ name: "", size: "", desc: "", type: "pdf", color: "red" });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        await response.json();
+      }
+
+      setResources((prev) => [...prev, newResource]);
+      setShowResourceModal(false);
+      setNewResource({ name: "", size: "", desc: "", type: "pdf", color: "red" });
+    } catch (error) {
+      console.error("Failed to submit resource:", error);
+      alert("Failed to add resource. Please try again.");
+    }
   };
 
   const handleTodoChange = (
@@ -120,7 +145,7 @@ export default function Home() {
     setNewTodo((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleTodoSubmit = (e: React.FormEvent) => {
+  const handleTodoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTodo.task.trim()) return;
     const item: TodoProps = {
@@ -128,34 +153,59 @@ export default function Home() {
       date: newTodo.date || "",
       completed: false,
     };
-    fetch("/api/addtodolist", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(item),
-    }).then((res) => {
-      if (res.ok) {
-        setTodoList((prev) => [...prev, item]);
-        console.log("Todo item submitted successfully");
-      } else {
-        console.error("Failed to submit todo item");
-      }
-    });
+    try {
+      const response = await fetch("/api/addtodolist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(item),
+      });
 
-    setShowTodoModal(false);
-    setNewTodo({ task: "", date: "", completed: false });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        await response.json();
+      }
+
+      setTodoList((prev) => [...prev, item]);
+      setShowTodoModal(false);
+      setNewTodo({ task: "", date: "", completed: false });
+    } catch (error) {
+      console.error("Failed to submit todo item:", error);
+      alert("Failed to add todo item. Please try again.");
+    }
   };
 
   const [todoList, setTodoList] = React.useState<TodoProps[]>([]);
 
   React.useEffect(() => {
-    fetch("/api/gettodolist")
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Fetched todo list:", data);
-        setTodoList(data.todolist);
-      });
+    const fetchTodoList = async () => {
+      try {
+        const response = await fetch("/api/gettodolist");
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Response is not JSON");
+        }
+
+        const data = await response.json();
+        if (data.todolist) {
+          setTodoList(data.todolist);
+        }
+      } catch (error) {
+        console.error("Failed to fetch todo list:", error);
+        setTodoList([]);
+      }
+    };
+    fetchTodoList();
   }, []);
 
   const classes = [
@@ -186,28 +236,36 @@ export default function Home() {
     { month: "May", study: 25, onlineTest: 12 },
   ];
 
-  const handleTodoToggle = (task: string) => {
-    fetch("/api/updatetodolist", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        task: task,
-        completed: !todoList.find((item) => item.task === task)?.completed,
-      }),
-    }).then((res) => {
-      if (res.ok) {
-        setTodoList((prev) =>
-          prev.map((item) =>
-            item.task === task ? { ...item, completed: !item.completed } : item,
-          ),
-        );
-        console.log("Todo item updated successfully");
-      } else {
-        console.error("Failed to update todo item");
+  const handleTodoToggle = async (task: string) => {
+    try {
+      const response = await fetch("/api/updatetodolist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          task: task,
+          completed: !todoList.find((item) => item.task === task)?.completed,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    });
+
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        await response.json();
+      }
+
+      setTodoList((prev) =>
+        prev.map((item) =>
+          item.task === task ? { ...item, completed: !item.completed } : item,
+        ),
+      );
+    } catch (error) {
+      console.error("Failed to update todo item:", error);
+    }
   };
 
   return (

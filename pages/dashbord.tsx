@@ -124,7 +124,7 @@ const dashbord = (props: Props) => {
   ) => {
     setNewTodo((prev) => ({ ...prev, [field]: value }));
   };
-  const handleTodoSubmit = (e: React.FormEvent) => {
+  const handleTodoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTodo.task.trim()) return;
     const item: TodoProps = {
@@ -132,46 +132,62 @@ const dashbord = (props: Props) => {
       date: newTodo.date || "",
       completed: false,
     };
-    fetch("/api/addtodolist", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(item),
-    }).then((res) => {
-      if (res.ok) {
-        setTodoList((prev) => [...prev, item]);
-        console.log("Todo item submitted successfully");
-      } else {
-        console.error("Failed to submit todo item");
-      }
-    });
+    try {
+      const response = await fetch("/api/addtodolist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(item),
+      });
 
-    setShowTodoModal(false);
-    setNewTodo({ task: "", date: "", completed: false });
-  };
-  const handleTodoToggle = (task: string) => {
-    fetch("/api/updatetodolist", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        task: task,
-        completed: !todoList.find((item) => item.task === task)?.completed,
-      }),
-    }).then((res) => {
-      if (res.ok) {
-        setTodoList((prev) =>
-          prev.map((item) =>
-            item.task === task ? { ...item, completed: !item.completed } : item,
-          ),
-        );
-        console.log("Todo item updated successfully");
-      } else {
-        console.error("Failed to update todo item");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    });
+
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        await response.json();
+      }
+
+      setTodoList((prev) => [...prev, item]);
+      setShowTodoModal(false);
+      setNewTodo({ task: "", date: "", completed: false });
+    } catch (error) {
+      console.error("Failed to submit todo item:", error);
+      alert("Failed to add todo item. Please try again.");
+    }
+  };
+  const handleTodoToggle = async (task: string) => {
+    try {
+      const response = await fetch("/api/updatetodolist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          task: task,
+          completed: !todoList.find((item) => item.task === task)?.completed,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        await response.json();
+      }
+
+      setTodoList((prev) =>
+        prev.map((item) =>
+          item.task === task ? { ...item, completed: !item.completed } : item,
+        ),
+      );
+    } catch (error) {
+      console.error("Failed to update todo item:", error);
+    }
   };
 
   const handleDownload = (index: number) => {
@@ -203,34 +219,59 @@ const dashbord = (props: Props) => {
   ) => {
     setNewResource((prev) => ({ ...prev, [field]: value }));
   };
-  const handleResourceSubmit = (e: React.FormEvent) => {
+  const handleResourceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newResource.name.trim()) return;
-    fetch("/api/addresources", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(newResource),
-    }).then((res) => {
-      if (res.ok) {
-        setResources((prev) => [...prev, newResource]);
-        console.log("Resource submitted successfully");
-      } else {
-        console.error("Failed to submit resource");
-      }
-    });
+    try {
+      const response = await fetch("/api/addresources", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newResource),
+      });
 
-    setShowResourceModal(false);
-    setNewResource({ name: "", size: "", desc: "", type: "pdf", color: "red" });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        await response.json();
+      }
+
+      setResources((prev) => [...prev, newResource]);
+      setShowResourceModal(false);
+      setNewResource({ name: "", size: "", desc: "", type: "pdf", color: "red" });
+    } catch (error) {
+      console.error("Failed to submit resource:", error);
+      alert("Failed to add resource. Please try again.");
+    }
   };
   React.useEffect(() => {
-    fetch("/api/getresources")
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Fetched resources:", data);
-        setResources(data.resources);
-      });
+    const fetchResources = async () => {
+      try {
+        const response = await fetch("/api/getresources");
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Response is not JSON");
+        }
+
+        const data = await response.json();
+        if (data.resources) {
+          setResources(data.resources);
+        }
+      } catch (error) {
+        console.error("Failed to fetch resources:", error);
+        setResources([]);
+      }
+    };
+    fetchResources();
   }, []);
 
   const gpa = 3.8;
@@ -351,11 +392,18 @@ const dashbord = (props: Props) => {
       <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
         {/* Sidebar */}
         <div
-          className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:relative lg:translate-x-0 bg-white dark:bg-gray-900 ${
-            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
-          <Sidebar />
+  className={`fixed inset-y-0 left-0 z-50 
+  transform transition-transform duration-300 
+  lg:relative lg:translate-x-0 
+  bg-white dark:bg-gray-900
+  h-screen overflow-y-auto overflow-x-hidden
+  ${
+    isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+  }`}
+>
+  <Sidebar />
+
+
           <button
             onClick={() => setIsSidebarOpen(false)}
             className="lg:hidden absolute top-4 right-4 p-2 text-gray-500 dark:text-gray-400"
