@@ -37,8 +37,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function AppContent({ Component, pageProps }: AppProps) {
-  const router = useRouter();
+function AppContent({ Component, pageProps, router }: AppProps) {
   const isLoginPage = router.pathname === "/login";
   const isApiRoute = router.pathname.startsWith("/api");
 
@@ -55,11 +54,11 @@ function AppContent({ Component, pageProps }: AppProps) {
   );
 }
 
-export default function App({ Component, pageProps }: AppProps) {
+export default function App({ Component, pageProps, router }: AppProps) {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppContent Component={Component} pageProps={pageProps} />
+        <AppContent Component={Component} pageProps={pageProps} router={router} />
       </AuthProvider>
     </ThemeProvider>
   );
