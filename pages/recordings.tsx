@@ -15,6 +15,7 @@ type Recording = {
   views: number;
   videoLink?: string;
   thumbnail?: string;
+  assignedTo?: string[];
 };
 
 const Recordings = () => {
@@ -33,12 +34,12 @@ const Recordings = () => {
 
   useEffect(() => {
     fetchRecordings();
-  }, []);
+  }, [user]);
 
   const fetchRecordings = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/videos");
+      const response = await fetch(`/api/videos?role=${user?.role}&email=${user?.email}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -61,6 +62,7 @@ const Recordings = () => {
           date: video.createdAt ? new Date(video.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           views: 0,
           videoLink: video.videoLink,
+          assignedTo: video.assignedTo || [],
         }));
         setRecordings(transformedRecordings);
       }
@@ -126,8 +128,9 @@ const Recordings = () => {
 
   const filteredRecordings = recordings.filter(
     (recording) =>
-      recording.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      recording.course.toLowerCase().includes(searchTerm.toLowerCase())
+      (recording.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      recording.course.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      !(user?.role === "Student" && recording.assignedTo?.includes("faculty"))
   );
 
   const canAddRecording = user?.role === "Admin" || user?.role === "Faculty";

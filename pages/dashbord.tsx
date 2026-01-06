@@ -248,11 +248,13 @@ const dashbord = (props: Props) => {
       alert("Failed to add resource. Please try again.");
     }
   };
+  const [assignedTasks, setAssignedTasks] = React.useState<any[]>([]);
+
   React.useEffect(() => {
     const fetchResources = async () => {
       try {
         const response = await fetch("/api/getresources");
-        
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -273,6 +275,32 @@ const dashbord = (props: Props) => {
     };
     fetchResources();
   }, []);
+
+  React.useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const response = await fetch(`/api/tasks?role=${user?.role}&email=${user?.email}`);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Response is not JSON");
+        }
+
+        const data = await response.json();
+        if (data.success && data.tasks) {
+          setAssignedTasks(data.tasks);
+        }
+      } catch (error) {
+        console.error("Failed to fetch tasks:", error);
+        setAssignedTasks([]);
+      }
+    };
+    fetchTasks();
+  }, [user]);
 
   const gpa = 3.8;
   const [selectedAnnouncement, setSelectedAnnouncement] =
@@ -905,7 +933,7 @@ const dashbord = (props: Props) => {
                     </button>
                   </div>
                   <div className="space-y-3">
-                    {assignments.map((assignment, index) => (
+                    {(assignedTasks.length > 0 ? assignedTasks : assignments).map((assignment, index) => (
                       <div
                         key={index}
                         onClick={() => {}}
@@ -917,10 +945,10 @@ const dashbord = (props: Props) => {
                               {assignment.title}
                             </h4>
                             <p className="text-xs text-gray-600 dark:text-gray-300">
-                              {assignment.subject}
+                              {assignment.subject || assignment.course}
                             </p>
                           </div>
-                          {assignment.status === "urgent" && (
+                          {(assignment.status === "urgent" || assignment.status === "created") && (
                             <AlertCircle
                               size={16}
                               className="text-red-500 shrink-0"
@@ -934,23 +962,23 @@ const dashbord = (props: Props) => {
                           />
                           <span
                             className={`${
-                              assignment.status === "urgent"
+                              assignment.status === "urgent" || assignment.status === "created"
                                 ? "text-red-500 font-medium"
                                 : "dark:text-gray-400 text-gray-600"
                             }`}
                           >
-                            {assignment.dueDate}
+                            {assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : "No due date"}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="flex-1 rounded-full h-1.5 overflow-hidden bg-gray-200 dark:bg-gray-700">
                             <div
                               className="bg-orange-500 h-1.5 rounded-full transition-all duration-500"
-                              style={{ width: `${assignment.progress}%` }}
+                              style={{ width: `${assignment.progress || 0}%` }}
                             ></div>
                           </div>
                           <span className="text-xs text-gray-600 dark:text-gray-300">
-                            {assignment.progress}%
+                            {assignment.progress || 0}%
                           </span>
                         </div>
                       </div>

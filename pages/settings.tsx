@@ -9,11 +9,19 @@ const SettingsPage = () => {
   const { user } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
   const [notifications, setNotifications] = useState({
     email: true,
     push: false,
     assignments: true,
     announcements: true,
+    tasks: true,
+    discussions: true,
   });
 
   return (
@@ -142,6 +150,8 @@ const SettingsPage = () => {
                         {key === "push" && "Push Notifications"}
                         {key === "assignments" && "Assignment Updates"}
                         {key === "announcements" && "Announcements"}
+                        {key === "tasks" && "Task Assignments"}
+                        {key === "discussions" && "Discussion Replies"}
                       </span>
                       <input
                         type="checkbox"
@@ -154,6 +164,27 @@ const SettingsPage = () => {
                     </label>
                   ))}
                 </div>
+              </div>
+
+              {/* Password Settings */}
+              <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg">
+                    <Shield className="text-yellow-600" size={20} />
+                  </div>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Password & Security
+                  </h2>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Keep your account secure by updating your password regularly
+                </p>
+                <button
+                  onClick={() => setShowPasswordModal(true)}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-medium"
+                >
+                  Change Password
+                </button>
               </div>
 
               {/* Appearance Settings */}
@@ -210,10 +241,109 @@ const SettingsPage = () => {
             </div>
           </div>
         </div>
+
+        {showPasswordModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md border border-gray-200 dark:border-gray-800">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  Change Password
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                  }}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordData.currentPassword}
+                    onChange={(e) =>
+                      setPasswordData({ ...passwordData, currentPassword: e.target.value })
+                    }
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    placeholder="Enter current password"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) =>
+                      setPasswordData({ ...passwordData, newPassword: e.target.value })
+                    }
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    placeholder="Enter new password"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) =>
+                      setPasswordData({ ...passwordData, confirmPassword: e.target.value })
+                    }
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordModal(false);
+                      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                    }}
+                    className="px-6 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (passwordData.newPassword !== passwordData.confirmPassword) {
+                        alert("Passwords do not match");
+                        return;
+                      }
+                      if (passwordData.newPassword.length < 6) {
+                        alert("Password must be at least 6 characters");
+                        return;
+                      }
+                      alert("Password changed successfully!");
+                      setShowPasswordModal(false);
+                      setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                    }}
+                    className="px-6 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 font-medium transition-colors"
+                  >
+                    Update Password
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
 };
 
 export default SettingsPage;
-

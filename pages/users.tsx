@@ -1,7 +1,7 @@
 import Sidebar from "@/components/Sidebar";
 import TabBar from "@/components/TabBar";
 import { Menu, Users, Search, Plus, X, Shield, GraduationCap, UserCheck, Mail, MoreVertical } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -36,7 +36,7 @@ const UsersPage = () => {
     );
   }
 
-  const [users] = useState<User[]>([
+  const [users,setUsers] = useState<User[]>([
     {
       id: "1",
       name: "Admin User",
@@ -45,28 +45,80 @@ const UsersPage = () => {
       status: "active",
       joinedDate: "2024-01-01",
     },
-    {
-      id: "2",
-      name: "Faculty User",
-      email: "faculty@gmail.com",
-      role: "Faculty",
-      status: "active",
-      joinedDate: "2024-01-05",
-    },
-    {
-      id: "3",
-      name: "Student User",
-      email: "student@gmail.com",
-      role: "Student",
-      status: "active",
-      joinedDate: "2024-01-10",
-    },
-  ]);
+    ]);
+
+    // fetch users on mount
+    useEffect(() => {
+      fetch("/api/users", { method: "GET" })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.users && Array.isArray(data.users)) setUsers(data.users);
+        })
+        .catch(() => {
+          // keep static users on failure
+        });
+    }, []);
+
+    // Add User modal state
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newUser, setNewUser] = useState({ name: "", email: "", role: "Student", status: "active", password: "", confirmPassword: "" });
+
+    const openAddModal = () => setShowAddModal(true);
+    const closeAddModal = () => {
+      setShowAddModal(false);
+      setNewUser({ name: "", email: "", role: "Student", status: "active", password: "", confirmPassword: "" });
+    };
+
+    const handleAddUser = async (e: React.FormEvent) => {
+      e.preventDefault();
+      // simple client-side validation for password
+      if (!newUser.password || newUser.password.length < 6) {
+        alert("Password must be at least 6 characters.");
+        return;
+      }
+      if (newUser.password !== newUser.confirmPassword) {
+        alert("Passwords do not match.");
+        return;
+      }
+
+      // map frontend roles to backend enum values
+      const roleMap: Record<string, string> = { Admin: "admin", Faculty: "user", Student: "guest" };
+
+      const payload = {
+        name: newUser.name,
+        email: newUser.email,
+        role: roleMap[newUser.role as string] || "user",
+        password: newUser.password,
+        joinedDate: new Date().toISOString(),
+      } as any;
+
+      try {
+        const res = await fetch("/api/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (res.ok && data.user) {
+          setUsers((prev) => [data.user, ...prev]);
+          closeAddModal();
+        } else {
+          console.error("Failed to add user", data);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+useEffect(() => {
+
+    // This is where you would fetch users from an API
+    // For now, we are using static data defined above
+  }, []);
 
   const filteredUsers = users.filter(
     (u) =>
-      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (u.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getRoleIcon = (role: string) => {
@@ -91,9 +143,14 @@ const UsersPage = () => {
 
       <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
         <div
-          className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:relative lg:translate-x-0 bg-white dark:bg-gray-900 ${
-            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+  className={`fixed inset-y-0 left-0 z-50 
+  transform transition-transform duration-300 
+  lg:relative lg:translate-x-0 
+  bg-white dark:bg-gray-900
+  h-screen overflow-y-auto overflow-x-hidden
+  ${
+    isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+  }`}
         >
           <Sidebar />
           <button
@@ -135,11 +192,43 @@ const UsersPage = () => {
                   Manage all system users, roles, and permissions
                 </p>
               </div>
-              <button className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
+              <button onClick={openAddModal} className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
                 <Plus size={20} />
                 Add User
               </button>
             </div>
+
+            {showAddModal && (
+              <div className="mb-6">
+                <form onSubmit={handleAddUser} className="bg-white dark:bg-gray-900 rounded-lg border p-4 shadow-sm">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Add New User</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <input required value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} placeholder="Full name" className="col-span-1 md:col-span-1 px-3 py-2 rounded border dark:bg-gray-800" />
+                    <input required type="email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} placeholder="Email" className="col-span-1 md:col-span-1 px-3 py-2 rounded border dark:bg-gray-800" />
+                    <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as "Admin" | "Faculty" | "Student" })} className="col-span-1 md:col-span-1 px-3 py-2 rounded border dark:bg-gray-800">
+                      <option>Student</option>
+                      <option>Faculty</option>
+                      <option>Admin</option>
+                    </select>
+                    <input required type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} placeholder="Password" className="col-span-1 md:col-span-1 px-3 py-2 rounded border dark:bg-gray-800" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <input required type="password" value={newUser.confirmPassword} onChange={(e) => setNewUser({ ...newUser, confirmPassword: e.target.value })} placeholder="Confirm password" className="px-3 py-2 rounded border dark:bg-gray-800" />
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm text-gray-600 dark:text-gray-400">Status</label>
+                      <select value={newUser.status} onChange={(e) => setNewUser({ ...newUser, status: e.target.value as "active" | "inactive" })} className="px-3 py-2 rounded border dark:bg-gray-800">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex justify-end gap-2">
+                    <button type="button" onClick={closeAddModal} className="px-4 py-2 rounded bg-gray-100 dark:bg-gray-800">Cancel</button>
+                    <button type="submit" className="px-4 py-2 rounded bg-orange-500 text-white">Create</button>
+                  </div>
+                </form>
+              </div>
+            )}
 
             <div className="mb-6">
               <div className="relative">
@@ -239,4 +328,3 @@ const UsersPage = () => {
 };
 
 export default UsersPage;
-

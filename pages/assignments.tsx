@@ -34,7 +34,6 @@ const statusDot: Record<AssignmentStatus, string> = {
 
 const Assignments = () => {
   const { user } = useAuth();
-  const role = (user?.role as Role) || "Student";
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [assignments, setAssignments] = React.useState<Assignment[]>([]);
@@ -81,28 +80,19 @@ const Assignments = () => {
   React.useEffect(() => {
     const loadAssignments = async () => {
       try {
-        const response = await fetch("/api/assignments");
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("Response is not JSON");
-        }
-
-        const data = await response.json();
-        if (data.data) {
-          setAssignments(data.data);
+        const response = await fetch(`/api/assignments?role=${user?.role}&email=${user?.email}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data) {
+            setAssignments(data.data);
+          }
         }
       } catch (error) {
         console.error("Failed to load assignments:", error);
-        setAssignments([]);
       }
     };
     loadAssignments();
-  }, []);
+  }, [user]);
 
   const setStatus = (id: number, status: AssignmentStatus) => {
     setAssignments((prev) =>
@@ -134,7 +124,7 @@ const Assignments = () => {
   };
 
   const renderActions = (item: Assignment) => {
-    const actions = roleActions[role];
+    const actions = roleActions[user?.role as Role];
     const studentInput = studentInputs[item.id] || "";
 
     const addStudent = () => {
@@ -216,7 +206,7 @@ const Assignments = () => {
               {action}
             </button>
           ))}
-          {role !== "Admin" && (
+          {user?.role !== "Admin" && (
             <select
               value={item.status}
               onChange={(e) =>
@@ -231,7 +221,7 @@ const Assignments = () => {
           )}
         </div>
 
-        {(role === "Faculty" || role === "Admin") && (
+        {user?.role === "Faculty" && (
           <div className="flex w-full gap-2">
             <input
               value={studentInput}
@@ -267,40 +257,31 @@ const Assignments = () => {
       .filter(Boolean);
 
     // Save to database
-    (async () => {
-      try {
-        const response = await fetch(`/api/assignments`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            title,
-            course,
-            dueDate: due,
-            students,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+    fetch(`/api/assignments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title,
+        course,
+        dueDate: due,
+        students,
+      }),
+    })
+      .then((res) => {
+        if (res.ok) {
+          return res.json();
         }
-
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("Response is not JSON");
-        }
-
-        const data = await response.json();
-        if (data.data) {
-          setAssignments((prev) => [...prev, data.data]);
-          alert("Assignment created successfully!");
-        }
-      } catch (error) {
+        throw new Error("Failed to create assignment");
+      })
+      .then((data) => {
+        setAssignments((prev) => [...prev, data.data]);
+        console.log("Assignment created successfully");
+      })
+      .catch((error) => {
         console.error("Failed to create assignment:", error);
-        alert("Failed to create assignment. Please try again.");
-      }
-    })();
+      });
 
     setNewAssignment({ title: "", course: "", dueDate: "", students: "" });
   };
@@ -330,18 +311,9 @@ const Assignments = () => {
           body: formData,
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("Response is not JSON");
-        }
-
         const data = await response.json();
 
-        if (data.error) {
+        if (!response.ok) {
           throw new Error(data.error || "Upload failed");
         }
 
@@ -396,15 +368,10 @@ const Assignments = () => {
       <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
         {/* Sidebar */}
         <div
-  className={`fixed inset-y-0 left-0 z-50 
-  transform transition-transform duration-300 
-  lg:relative lg:translate-x-0 
-  bg-white dark:bg-gray-900
-  h-screen overflow-y-auto overflow-x-hidden
-  ${
-    isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-  }`}
->
+          className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:relative lg:translate-x-0 bg-white dark:bg-gray-900 ${
+            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
           <Sidebar />
           <button
             onClick={() => setIsSidebarOpen(false)}
@@ -443,9 +410,8 @@ const Assignments = () => {
                   Assignments
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {role === "Student" && "View and submit your assignments"}
-                  {role === "Faculty" && "Manage assignments, review submissions, and grade student work"}
-                  {role === "Admin" && "Manage all assignments and system settings"}
+                  Switch between student, faculty, and admin views to see
+                  available actions.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
@@ -497,7 +463,7 @@ const Assignments = () => {
               </div>
             </div>
 
-            {(role === "Faculty" || role === "Admin") && (
+            {user?.role === "Faculty" && (
               <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-sm mb-6">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
                   Create assignment
@@ -562,13 +528,13 @@ const Assignments = () => {
             <div className="hidden md:block border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
               <div
                 className={`grid ${
-                  role != "Student" ? "grid-cols-6" : "grid-cols-5"
+                  user?.role != "Student" ? "grid-cols-6" : "grid-cols-5"
                 } text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3 bg-gray-50 dark:bg-gray-800`}
               >
                 <div className=" ">Assignment</div>
                 <div className=" ">Course</div>
                 <div className="">Due</div>
-                {(role == "Faculty" || role == "Admin") && (
+                {(user?.role == "Faculty" || user?.role == "Admin") && (
                   <div className="">Students</div>
                 )}
                 <div className="">Status</div>
@@ -579,7 +545,7 @@ const Assignments = () => {
                   <div
                     key={item.id}
                     className={`grid ${
-                      role != "Student" ? "grid-cols-6" : "grid-cols-5"
+                      user?.role != "Student" ? "grid-cols-6" : "grid-cols-5"
                     } items-center px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-800`}
                   >
                     <div className="  font-semibold text-gray-800 dark:text-gray-100 truncate">
@@ -591,7 +557,7 @@ const Assignments = () => {
                     <div className="  text-gray-600 dark:text-gray-300">
                       {item.dueDate}
                     </div>
-                    {(role == "Faculty" || role == "Admin") && (
+                    {(user?.role == "Faculty" || user?.role == "Admin") && (
                       <div className="  text-gray-600 dark:text-gray-300 truncate">
                         {item.students.length ? item.students.join(", ") : "—"}
                       </div>

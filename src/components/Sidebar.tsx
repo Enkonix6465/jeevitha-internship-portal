@@ -47,6 +47,7 @@ const Sidebar = (props: Props) => {
         { icon: Video, label: "Recordings", path: "/recordings" },
         { icon: MessageSquare, label: "Discussions", path: "/discussions" },
         { icon: FolderOpen, label: "Resources", path: "/resources" },
+        { icon: FileText, label: "Content Manager", path: "/admin-content" },
         { icon: Settings, label: "Settings", path: "/settings" },
       ];
     } else if (user?.role === "Faculty") {
@@ -60,6 +61,7 @@ const Sidebar = (props: Props) => {
         { icon: FolderOpen, label: "Resources", path: "/resources" },
         { icon: Users, label: "Students", path: "/students" },
         { icon: GraduationCap, label: "Courses", path: "/courses" },
+        { icon: FileText, label: "Create Content", path: "/faculty-content" },
         { icon: Settings, label: "Settings", path: "/settings" },
       ];
     } else {
@@ -69,10 +71,10 @@ const Sidebar = (props: Props) => {
         { icon: FileText, label: "Tasks", path: "/tasks" },
         { icon: FileText, label: "Assignments", path: "/assignments" },
         { icon: Calendar, label: "Schedule", path: "/schedule" },
-        { icon: Video, label: "Recordings", path: "/recordings" },
+        { icon: Video, label: "Videos", path: "/student-videos" },
         { icon: MessageSquare, label: "Discussions", path: "/discussions" },
         { icon: FolderOpen, label: "Resources", path: "/resources" },
-        { icon: StickyNote, label: "Notes", path: "/notes" },
+        { icon: StickyNote, label: "Notes", path: "/student-notes" },
         { icon: Download, label: "Downloads", path: "/downloads" },
         { icon: GraduationCap, label: "Courses", path: "/courses" },
         { icon: Settings, label: "Settings", path: "/settings" },

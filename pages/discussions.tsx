@@ -19,8 +19,8 @@ const Discussions = () => {
   const { user } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-
-  const [discussions] = useState<Discussion[]>([
+  const [showNewDiscussionModal, setShowNewDiscussionModal] = useState(false);
+  const [discussions, setDiscussions] = useState<Discussion[]>([
     {
       id: "1",
       title: "Question about React Hooks",
@@ -48,6 +48,59 @@ const Discussions = () => {
       lastActivity: "1 day ago",
     },
   ]);
+
+  const [newDiscussion, setNewDiscussion] = useState({
+    title: "",
+    course: "",
+    content: "",
+  });
+
+  const handleCreateDiscussion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDiscussion.title || !newDiscussion.course || !newDiscussion.content) {
+      alert("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/content/discussions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-role": user?.role || "Student",
+          "x-user-email": user?.email || "",
+        },
+        body: JSON.stringify({
+          title: newDiscussion.title,
+          content: newDiscussion.content,
+          course: newDiscussion.course,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDiscussions([
+          {
+            id: data.data._id,
+            title: data.data.title,
+            author: user?.name || "Anonymous",
+            course: data.data.course,
+            replies: 0,
+            lastActivity: "just now",
+          },
+          ...discussions,
+        ]);
+        setShowNewDiscussionModal(false);
+        setNewDiscussion({ title: "", course: "", content: "" });
+        alert("Discussion created successfully!");
+      } else {
+        alert("Failed to create discussion");
+      }
+    } catch (error) {
+      console.error("Error creating discussion:", error);
+      alert("Failed to create discussion");
+    }
+  };
 
   const filteredDiscussions = discussions.filter(
     (discussion) =>
@@ -115,7 +168,10 @@ const Discussions = () => {
                   {user?.role === "Admin" && "Monitor and manage all course discussions"}
                 </p>
               </div>
-              <button className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
+              <button
+                onClick={() => setShowNewDiscussionModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+              >
                 <Plus size={20} />
                 New Discussion
               </button>
@@ -183,10 +239,99 @@ const Discussions = () => {
             </div>
           </div>
         </div>
+
+        {showNewDiscussionModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-2xl border border-gray-200 dark:border-gray-800">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  Start a New Discussion
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowNewDiscussionModal(false);
+                    setNewDiscussion({ title: "", course: "", content: "" });
+                  }}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateDiscussion} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Discussion Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={newDiscussion.title}
+                    onChange={(e) =>
+                      setNewDiscussion({ ...newDiscussion, title: e.target.value })
+                    }
+                    placeholder="What is your discussion about?"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Course *
+                  </label>
+                  <input
+                    type="text"
+                    value={newDiscussion.course}
+                    onChange={(e) =>
+                      setNewDiscussion({ ...newDiscussion, course: e.target.value })
+                    }
+                    placeholder="Which course is this discussion for?"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Discussion Content *
+                  </label>
+                  <textarea
+                    value={newDiscussion.content}
+                    onChange={(e) =>
+                      setNewDiscussion({ ...newDiscussion, content: e.target.value })
+                    }
+                    placeholder="Share your thoughts, questions, or insights..."
+                    rows={6}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewDiscussionModal(false);
+                      setNewDiscussion({ title: "", course: "", content: "" });
+                    }}
+                    className="px-6 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 font-medium transition-colors"
+                  >
+                    Post Discussion
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
 };
 
 export default Discussions;
-

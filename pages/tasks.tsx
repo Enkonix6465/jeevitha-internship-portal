@@ -168,8 +168,8 @@ const TasksPage = () => {
 
   const filteredTasks = tasks.filter(
     (task) =>
-      task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.course.toLowerCase().includes(searchTerm.toLowerCase())
+      (task.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (task.course || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const canCreateTask = user?.role === "Admin";
@@ -521,4 +521,3 @@ const TasksPage = () => {
 };
 
 export default TasksPage;
-

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Head from "next/head";
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 type ViewMode = "month" | "week" | "day";
 
@@ -20,6 +21,7 @@ type CalendarEvent = {
   time?: string;
   meatingLink?: string;
   color: "yellow" | "green" | "red" | "purple";
+  assignedTo?: string[]; // Array of user emails or IDs
 };
 
 const monthNames = [
@@ -61,6 +63,7 @@ const formatDateKey = (date: Date) => {
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 };
+
 
 const addDays = (date: Date, days: number) => {
   const next = new Date(date);
@@ -114,10 +117,13 @@ const SchedulePage = () => {
     time: "",
     meatingLink: "",
     color: "yellow" as CalendarEvent["color"],
+    assignedTo: [] as string[],
   });
 
+  const { user } = useAuth();
+
   useEffect(() => {
-    // Fetch events from database on mount
+    // Fetch events from database whenever user role changes
     const fetchEvents = async () => {
       try {
         const response = await fetch("/api/events");
@@ -132,12 +138,19 @@ const SchedulePage = () => {
     };
 
     fetchEvents();
-  }, []);
+  }, [user]);
 
   const filteredEvents = useMemo(() => {
-    if (selectedColors.length === 0) return events;
-    return events.filter((event) => selectedColors.includes(event.color));
-  }, [events, selectedColors]);
+    // Start with color filtering
+    let base = selectedColors.length === 0 ? events : events.filter((event) => selectedColors.includes(event.color));
+
+    // If current user is a Student, hide events assigned to faculty
+    if (user?.role === "Student") {
+      base = base.filter((event) => !(event.assignedTo && event.assignedTo.includes("faculty")));
+    }
+
+    return base;
+  }, [events, selectedColors, user]);
 
   const eventsByDate = useMemo(
     () => groupEventsByDate(filteredEvents),
@@ -209,18 +222,16 @@ const SchedulePage = () => {
       if (diffDays === 1 && remainingHours === 0) {
         return "Tomorrow";
       }
-      return `${diffDays} day${diffDays > 1 ? "s" : ""}${
-        remainingHours > 0 ? ` ${remainingHours}h` : ""
-      }`;
+      return `${diffDays} day${diffDays > 1 ? "s" : ""}${remainingHours > 0 ? ` ${remainingHours}h` : ""
+        }`;
     }
 
     if (diffHours > 0) {
       const remainingMinutes = Math.floor(
         (diffMs % (1000 * 60 * 60)) / (1000 * 60),
       );
-      return `${diffHours} hour${diffHours > 1 ? "s" : ""}${
-        remainingMinutes > 0 ? ` ${remainingMinutes}m` : ""
-      }`;
+      return `${diffHours} hour${diffHours > 1 ? "s" : ""}${remainingMinutes > 0 ? ` ${remainingMinutes}m` : ""
+        }`;
     }
 
     if (diffMinutes > 0) {
@@ -238,6 +249,7 @@ const SchedulePage = () => {
       time: "",
       meatingLink: "",
       color: "yellow",
+      assignedTo: [],
     });
   };
 
@@ -256,7 +268,11 @@ const SchedulePage = () => {
   };
 
   const handleFormChange = (field: string, value: string) => {
-    setEventForm((prev) => ({ ...prev, [field]: value }));
+    if (field === "assignedTo") {
+      setEventForm((prev) => ({ ...prev, assignedTo: JSON.parse(value) }));
+    } else {
+      setEventForm((prev) => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleSubmitEvent = async (e: React.FormEvent) => {
@@ -275,6 +291,7 @@ const SchedulePage = () => {
           time: eventForm.time || undefined,
           meatingLink: eventForm.meatingLink || undefined,
           color: eventForm.color,
+          assignedTo: eventForm.assignedTo.length > 0 ? eventForm.assignedTo : undefined,
         }),
       });
 
@@ -307,26 +324,25 @@ const SchedulePage = () => {
       )} ${end.getDate()}`;
       return `${startLabel} - ${endLabel}`;
     }
-    const dayLabel = `${
-      monthNames[focusDate.getMonth()]
-    } ${focusDate.getDate()}, ${focusDate.getFullYear()}`;
+    const dayLabel = `${monthNames[focusDate.getMonth()]
+      } ${focusDate.getDate()}, ${focusDate.getFullYear()}`;
     return dayLabel;
   }, [currentView, focusDate, weekDays]);
-
+  const userRole = localStorage.getItem("role")?.toLowerCase();
   const renderEventChip = (event: CalendarEvent) => (
-    <button
-      key={event.id}
-      onClick={() => handleEventClick(event)}
-      className={`mt-1 text-[11px] font-medium px-2 py-1 rounded w-full text-left hover:opacity-80 transition-opacity ${
-        eventColorStyles[event.color]
-      }`}
-    >
-      <div className="leading-tight flex items-center gap-1">
-        <span>{eventColorEmojis[event.color]}</span>
-        <span>{event.title}</span>
-      </div>
-      {event.time && <div className="text-[10px] opacity-80">{event.time}</div>}
-    </button>
+    <>{ userRole !== "student" || !(event.assignedTo && event.assignedTo.includes("faculty")) &&
+      <button
+        key={event.id}
+        onClick={() => handleEventClick(event)}
+        className={`mt-1 text-[11px] font-medium px-2 py-1 rounded w-full text-left hover:opacity-80 transition-opacity ${eventColorStyles[event.color]
+          }`}
+      >
+        <div className="leading-tight flex items-center gap-1">
+          <span>{eventColorEmojis[event.color]}</span>
+          <span>{event.title}</span>
+        </div>
+        {event.time && <div className="text-[10px] opacity-80">{event.time}</div>}
+      </button>}</>
   );
 
   const MonthView = () => (
@@ -351,9 +367,8 @@ const SchedulePage = () => {
           return (
             <div
               key={key}
-              className={`min-h-30 rounded-lg border border-gray-200 p-2 text-sm transition-colors ${
-                highlightToday ? "bg-orange-50 border-orange-200" : "bg-white"
-              } ${isCurrentMonth ? "" : "text-gray-300"}`}
+              className={`min-h-30 rounded-lg border border-gray-200 p-2 text-sm transition-colors ${highlightToday ? "bg-orange-50 border-orange-200" : "bg-white"
+                } ${isCurrentMonth ? "" : "text-gray-300"}`}
             >
               <div className="flex items-center justify-between text-xs font-semibold text-gray-600 mb-1">
                 <span>{day.getDate()}</span>
@@ -383,11 +398,10 @@ const SchedulePage = () => {
         return (
           <div
             key={key}
-            className={`rounded-lg border p-4 min-h-35 ${
-              highlightToday
+            className={`rounded-lg border p-4 min-h-35 ${highlightToday
                 ? "border-orange-300 bg-orange-50"
                 : "border-gray-200"
-            }`}
+              }`}
           >
             <div className="flex items-baseline gap-2 mb-2">
               <span className="text-lg font-semibold text-gray-800">
@@ -448,9 +462,8 @@ const SchedulePage = () => {
                       matchingEvents.map((event) => (
                         <div
                           key={event.id}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                            eventColorStyles[event.color]
-                          }`}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium ${eventColorStyles[event.color]
+                            }`}
                         >
                           <div className="flex items-center gap-2">
                             <span>{eventColorEmojis[event.color]}</span>
@@ -483,9 +496,8 @@ const SchedulePage = () => {
           {dayEvents.map((event) => (
             <div
               key={event.id}
-              className={`px-3 py-2 rounded-lg ${
-                eventColorStyles[event.color]
-              }`}
+              className={`px-3 py-2 rounded-lg ${eventColorStyles[event.color]
+                }`}
             >
               <div className="text-sm font-semibold flex items-center gap-2">
                 <span>{eventColorEmojis[event.color]}</span>
@@ -509,16 +521,15 @@ const SchedulePage = () => {
       </Head>
 
       <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <div
-  className={`fixed inset-y-0 left-0 z-50 
+        <div
+          className={`fixed inset-y-0 left-0 z-50 
   transform transition-transform duration-300 
   lg:relative lg:translate-x-0 
   bg-white dark:bg-gray-900
   h-screen overflow-y-auto overflow-x-hidden
-  ${
-    isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-  }`}
->
+  ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
+        >
           <Sidebar />
           <button
             onClick={() => setIsSidebarOpen(false)}
@@ -559,11 +570,10 @@ const SchedulePage = () => {
                       <button
                         key={mode}
                         onClick={() => setCurrentView(mode)}
-                        className={`pb-1 border-b-2 transition-colors ${
-                          currentView === mode
+                        className={`pb-1 border-b-2 transition-colors ${currentView === mode
                             ? "text-orange-500 border-orange-500"
                             : "border-transparent hover:text-orange-500"
-                        }`}
+                          }`}
                       >
                         {mode === "month"
                           ? "Monthly"
@@ -589,14 +599,17 @@ const SchedulePage = () => {
                     )}
                   </button>
                   {/* seperator */}
-                  <div className="w-px h-8 bg-gray-300" />
-                  <button
-                    onClick={handleAddEvent}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-semibold"
-                  >
-                    <Plus size={16} />
-                    Add Event
-                  </button>
+                  {user?.role !== "Student" && (
+                    <><div className="w-px h-8 bg-gray-300" />
+                      <button
+                        onClick={handleAddEvent}
+                        className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-semibold"
+                      >
+                        <Plus size={16} />
+                        Add Event
+                      </button></>
+                  )}
+
                 </div>
               </div>
 
@@ -718,24 +731,51 @@ const SchedulePage = () => {
                         key={color}
                         type="button"
                         onClick={() => handleFormChange("color", color)}
-                        className={`px-4 py-3 rounded-lg border-2 transition-all capitalize ${
-                          eventForm.color === color
+                        className={`px-4 py-3 rounded-lg border-2 transition-all capitalize ${eventForm.color === color
                             ? "border-orange-500 ring-2 ring-orange-200"
                             : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
-                        } ${
-                          color === "yellow"
+                          } ${color === "yellow"
                             ? "bg-yellow-50 text-yellow-700"
                             : color === "green"
                               ? "bg-green-50 text-green-700"
                               : color === "red"
                                 ? "bg-red-50 text-red-600"
                                 : "bg-purple-50 text-purple-600"
-                        }`}
+                          }`}
                       >
                         {color}
                       </button>
                     ),
                   )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Assign To
+                </label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                  {[
+                    { label: "Faculty", value: "faculty" },
+                    { label: "Students", value: "students" },
+                  ].map((option) => (
+                    <label key={option.value} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
+                      <input
+                        type="checkbox"
+                        checked={eventForm.assignedTo.includes(option.value)}
+                        onChange={(e) => {
+                          const newAssigned = e.target.checked
+                            ? [...eventForm.assignedTo, option.value]
+                            : eventForm.assignedTo.filter((a) => a !== option.value);
+                          handleFormChange("assignedTo", JSON.stringify(newAssigned));
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-orange-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {option.label}
+                      </span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
@@ -792,27 +832,24 @@ const SchedulePage = () => {
                           key={color}
                           type="button"
                           onClick={() => toggleColorFilter(color)}
-                          className={`w-full px-4 py-3 rounded-lg border-2 transition-all flex items-center justify-between ${
-                            isSelected
+                          className={`w-full px-4 py-3 rounded-lg border-2 transition-all flex items-center justify-between ${isSelected
                               ? "border-orange-500 ring-2 ring-orange-200"
                               : "border-gray-200 dark:border-gray-700 hover:border-gray-300"
-                          } ${
-                            color === "yellow"
+                            } ${color === "yellow"
                               ? "bg-yellow-50 text-yellow-700"
                               : color === "green"
                                 ? "bg-green-50 text-green-700"
                                 : color === "red"
                                   ? "bg-red-50 text-red-600"
                                   : "bg-purple-50 text-purple-600"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             <div
-                              className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                                isSelected
+                              className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected
                                   ? "border-current"
                                   : "border-gray-300"
-                              }`}
+                                }`}
                             >
                               {isSelected && (
                                 <svg
@@ -970,15 +1007,14 @@ const SchedulePage = () => {
                 </label>
                 <div className="flex items-center gap-2">
                   <div
-                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold capitalize ${
-                      selectedEvent.color === "yellow"
+                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold capitalize ${selectedEvent.color === "yellow"
                         ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
                         : selectedEvent.color === "green"
                           ? "bg-green-50 text-green-700 border border-green-200"
                           : selectedEvent.color === "red"
                             ? "bg-red-50 text-red-600 border border-red-200"
                             : "bg-purple-50 text-purple-600 border border-purple-200"
-                    }`}
+                      }`}
                   >
                     {selectedEvent.color}
                   </div>
